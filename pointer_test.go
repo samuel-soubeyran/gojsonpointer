@@ -272,6 +272,61 @@ func TestSetEmptyNode(t *testing.T) {
 	}
 }
 
+func TestSetNestedNode(t *testing.T) {
+
+	jsonText := `{}`
+
+	var jsonDocument interface{}
+	json.Unmarshal([]byte(jsonText), &jsonDocument)
+
+	in := "/a/b"
+
+	p, err := NewJsonPointer(in)
+	if err != nil {
+		t.Errorf("NewJsonPointer(%v) error %v", in, err.Error())
+	}
+
+	_, err = p.Set(jsonDocument, 999)
+	if err != nil {
+		t.Errorf("Set(%v) error %v", in, err.Error())
+	}
+
+	firstNode := jsonDocument.(map[string]interface{})
+	secondNode := firstNode["a"].(map[string]interface{})
+	target := secondNode["b"].(int)
+	if target != 999 {
+		t.Errorf("Set(%s) failed", in)
+	}
+}
+
+func TestSetNestedArray(t *testing.T) {
+
+	jsonText := `{}`
+
+	var jsonDocument interface{}
+	json.Unmarshal([]byte(jsonText), &jsonDocument)
+
+	in := "/a/0/b"
+
+	p, err := NewJsonPointer(in)
+	if err != nil {
+		t.Errorf("NewJsonPointer(%v) error %v", in, err.Error())
+	}
+
+	_, err = p.Set(jsonDocument, 999)
+	if err != nil {
+		t.Errorf("Set(%v) error %v", in, err.Error())
+	}
+
+	firstNode := jsonDocument.(map[string]interface{})
+	array := firstNode["a"].([]interface{})
+	secondNode := array[0].(map[string]interface{})
+	target := secondNode["b"].(int)
+	if target != 999 {
+		t.Errorf("Set(%s) failed", in)
+	}
+}
+
 func TestDelObject(t *testing.T) {
 	jsonText := `{
 		"a":["apple sauce", "ketchup", "soy sauce"],
@@ -295,7 +350,7 @@ func TestDelObject(t *testing.T) {
 		t.Errorf("NewJsonPointer(%v) error %v", in, err.Error())
 	}
 
-	_,  err = p.Delete(jsonDocument)
+	_, err = p.Delete(jsonDocument)
 	if err != nil {
 		t.Errorf("Delete(%v) error %v", in, err.Error())
 	}
@@ -334,7 +389,7 @@ func TestDelArray(t *testing.T) {
 		t.Errorf("NewJsonPointer(%v) error %v", in, err.Error())
 	}
 
-	_,  err = p.Delete(jsonDocument)
+	_, err = p.Delete(jsonDocument)
 	if err != nil {
 		t.Errorf("Delete(%v) error %v", in, err.Error())
 	}

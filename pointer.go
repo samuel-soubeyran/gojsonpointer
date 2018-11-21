@@ -107,7 +107,6 @@ func (p *JsonPointer) implementation(i *implStruct) {
 		i.getOutNode = i.inDocument
 		i.outError = nil
 		i.getOutKind = kind
-		i.outError = nil
 		return
 	}
 
@@ -133,8 +132,14 @@ func (p *JsonPointer) implementation(i *implStruct) {
 				} else if isLastToken && i.mode =="DEL" {
 					delete(v,decodedToken)
 				}
-			} else if (isLastToken && i.mode == "SET") {
-				v[decodedToken] = i.setInValue
+			} else if (i.mode == "SET") {
+			if isLastToken {
+					v[decodedToken] = i.setInValue
+				} else {
+					nextToken := p.referenceTokens[ti+1]
+					node = InitializeNodeGivenNextToken(nextToken)
+					v[decodedToken] = node
+				}
 			} else {
 				i.outError = fmt.Errorf("Object has no key '%s'", decodedToken)
 				i.getOutKind = reflect.Map
@@ -150,21 +155,38 @@ func (p *JsonPointer) implementation(i *implStruct) {
 				i.getOutNode = nil
 				return
 			}
-			if tokenIndex < 0 || tokenIndex >= len(v) {
+			if tokenIndex < 0 || tokenIndex > len(v) {
 				i.outError = fmt.Errorf("Out of bound array[0,%d] index '%d'", len(v), tokenIndex)
 				i.getOutKind = reflect.Slice
 				i.getOutNode = nil
 				return
 			}
-
-			node = v[tokenIndex]
-			if isLastToken && i.mode == "SET" {
-				v[tokenIndex] = i.setInValue
-			}  else if isLastToken && i.mode =="DEL" {
-				v[tokenIndex] = v[len(v)-1]
-				v[len(v)-1] = nil
-				v = v[:len(v)-1]
-				previousNodes[ti-1].(map[string]interface{})[previousTokens[ti-1]] = v
+			if tokenIndex == len(v) {
+				if i.mode != "SET" {
+					i.outError = fmt.Errorf("Out of bound array[0,%d] index '%d'", len(v), tokenIndex)
+					i.getOutKind = reflect.Slice
+					i.getOutNode = nil
+					return
+				}
+				if isLastToken {
+					v = append(v, i.setInValue)
+					return
+				} else {
+					nextToken := p.referenceTokens[ti+1]
+					node = InitializeNodeGivenNextToken(nextToken)
+					v = append(v, node)
+					previousNodes[ti-1].(map[string]interface{})[previousTokens[ti-1]] = v
+				}
+			} else {
+				node = v[tokenIndex]
+				if isLastToken && i.mode == "SET" {
+					v[tokenIndex] = i.setInValue
+				} else if isLastToken && i.mode =="DEL" {
+					v[tokenIndex] = v[len(v)-1]
+					v[len(v)-1] = nil
+					v = v[:len(v)-1]
+					previousNodes[ti-1].(map[string]interface{})[previousTokens[ti-1]] = v
+				}
 			}
 
 		default:
@@ -180,7 +202,14 @@ func (p *JsonPointer) implementation(i *implStruct) {
 	i.getOutKind = reflect.ValueOf(node).Kind()
 	i.outError = nil
 }
-
+func InitializeNodeGivenNextToken(nextToken string) interface{} {
+	_, err := strconv.Atoi(nextToken)
+	if err != nil {
+		return map[string]interface{}{}
+	} else {
+		return []interface{}{}
+  }
+}
 // Pointer to string representation function
 func (p *JsonPointer) String() string {
 
